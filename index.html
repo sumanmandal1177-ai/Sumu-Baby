@@ -1,248 +1,242 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SUMU BABY 💖</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
+<title>SUMU AI ULTIMATE</title>
 
 <style>
-html,body{height:100%;margin:0;background:#fdf2f8;}
-.app-container{display:flex;flex-direction:column;height:100vh;}
-.message-container{flex:1;overflow-y:auto;padding:15px;padding-bottom:100px;}
-.input-wrapper{position:fixed;bottom:0;left:0;right:0;background:white;padding:10px;border-top:1px solid #fce7f3;}
-.level-badge{font-size:12px;padding:4px 10px;background:#ec4899;color:white;border-radius:999px;}
-.bubble-user{background:#ec4899;color:white;padding:10px 14px;border-radius:16px;display:inline-block;}
-.bubble-ai{background:white;padding:10px 14px;border-radius:16px;display:inline-block;border:1px solid #fbcfe8;}
+body{
+margin:0;
+font-family:Arial;
+background:#0f172a;
+color:white;
+display:flex;
+flex-direction:column;
+height:100vh;
+}
+header{
+padding:10px;
+background:#1e293b;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+#chat-box{
+flex:1;
+overflow-y:auto;
+padding:10px;
+display:flex;
+flex-direction:column;
+}
+.msg{
+margin:6px 0;
+padding:8px 12px;
+border-radius:10px;
+max-width:80%;
+}
+.user{background:#2563eb;align-self:flex-end;}
+.bot{background:#334155;align-self:flex-start;}
+footer{
+display:flex;
+padding:10px;
+background:#1e293b;
+}
+input{
+flex:1;
+padding:8px;
+border-radius:8px;
+border:none;
+outline:none;
+}
+button{
+margin-left:6px;
+padding:8px 10px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+#status{
+font-size:12px;
+opacity:0.7;
+}
 </style>
 </head>
 <body>
 
-<div class="app-container">
-<header class="bg-white p-3 shadow flex justify-between items-center">
-<div class="flex items-center gap-3">
-<h1 class="font-bold text-pink-500">💖 SUMU BABY</h1>
-<span id="level-badge" class="level-badge"></span>
-</div>
-<div class="flex gap-3">
+<header>
+<h3>💖 SUMU AI</h3>
+<div>
+<span id="status">Idle</span>
 <button id="settings-btn">⚙️</button>
-<button id="clear-chat">🗑</button>
+<button id="clear-btn">🗑</button>
 </div>
 </header>
 
-<div id="messages-container" class="message-container space-y-4"></div>
+<div id="chat-box"></div>
 
-<div class="input-wrapper">
-<form id="chat-form" class="flex gap-2">
-<input type="text" id="user-input" placeholder="কি বলবে বেবি..."
-class="flex-1 bg-pink-50 rounded-2xl px-4 py-3 outline-none">
-<button class="bg-pink-500 text-white px-5 rounded-2xl">➤</button>
-</form>
-</div>
-</div>
-
-<!-- SETTINGS MODAL -->
-<div id="settings-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden">
-<div class="bg-white p-6 rounded-2xl w-80 space-y-3">
-<h2 class="font-bold text-center text-pink-500">API Settings</h2>
-
-<input type="password" id="openrouter-key"
-placeholder="OpenRouter API Key (sk-or-...)"
-class="w-full p-3 bg-gray-100 rounded-xl">
-
-<input type="text" id="model-name"
-placeholder="Model (deepseek/deepseek-r1:free)"
-class="w-full p-3 bg-gray-100 rounded-xl">
-
-<button id="save-settings"
-class="w-full bg-pink-500 text-white p-3 rounded-xl">
-Save
-</button>
-
-</div>
-</div>
+<footer>
+<input type="text" id="user-input" placeholder="Say 'Sumu' to activate...">
+<button id="send-btn">Send</button>
+</footer>
 
 <script>
+
+/* ================= SETTINGS ================= */
 const API_URL="https://openrouter.ai/api/v1/chat/completions";
+const MODEL="openai/gpt-4o-mini";
+const WAKE_WORD="sumu";
 
-let MODEL=localStorage.getItem("openrouter_model") || "deepseek/deepseek-r1:free";
-let OPENROUTER_API=localStorage.getItem("openrouter_key") || "";
+/* ================= ELEMENTS ================= */
+const chatBox=document.getElementById("chat-box");
+const input=document.getElementById("user-input");
+const sendBtn=document.getElementById("send-btn");
+const statusDiv=document.getElementById("status");
+const settingsBtn=document.getElementById("settings-btn");
+const clearBtn=document.getElementById("clear-btn");
 
-let chatHistory=[];
-let relationshipLevel=1;
-let memory=JSON.parse(localStorage.getItem("sumu_memory"))||{};
+/* ================= API KEY SYSTEM ================= */
+let API_KEY=localStorage.getItem("sumu_api_key")||"";
 
-/* DOM */
-const chatForm=document.getElementById('chat-form');
-const userInput=document.getElementById('user-input');
-const messagesContainer=document.getElementById('messages-container');
-const clearBtn=document.getElementById('clear-chat');
-const levelBadge=document.getElementById('level-badge');
-const settingsBtn=document.getElementById('settings-btn');
-const settingsModal=document.getElementById('settings-modal');
-const saveSettings=document.getElementById('save-settings');
-
-/* Load saved */
-document.getElementById("openrouter-key").value=OPENROUTER_API;
-document.getElementById("model-name").value=MODEL;
-
-/* SETTINGS */
-settingsBtn.onclick=()=>settingsModal.classList.remove("hidden");
-
-saveSettings.onclick=()=>{
-OPENROUTER_API=document.getElementById("openrouter-key").value.trim();
-MODEL=document.getElementById("model-name").value.trim() || "deepseek/deepseek-r1:free";
-
-localStorage.setItem("openrouter_key",OPENROUTER_API);
-localStorage.setItem("openrouter_model",MODEL);
-
-settingsModal.classList.add("hidden");
-alert("Saved Successfully 💖");
+settingsBtn.onclick=()=>{
+const key=prompt("Enter your OpenRouter API Key:",API_KEY||"");
+if(key){
+API_KEY=key;
+localStorage.setItem("sumu_api_key",key);
+alert("API Key Saved!");
+}
 };
 
-/* LEVEL */
-function updateLevel(){
-const levels=["Crush 💘","Love 💕","Serious 💖","Sad"];
-levelBadge.innerText=levels[Math.min(relationshipLevel-1,3)];
-}
-updateLevel();
+/* ================= MEMORY LOAD ================= */
+window.onload=()=>{
+let history=JSON.parse(localStorage.getItem("sumu_memory"))||[];
+history.forEach(msg=>{
+addMessage(msg.content,msg.role==="user"?"user":"bot");
+});
+startListening();
+};
 
-/* MEMORY */
-function updateMemory(text){
-if(text.includes("আমার নাম")){
-memory.name=text.split("আমার নাম")[1].trim();
-}
-localStorage.setItem("sumu_memory",JSON.stringify(memory));
-}
+/* ================= SEND MESSAGE ================= */
+async function sendMessage(message){
 
-function getMemoryPrompt(){
-let mem="";
-if(memory.name) mem+=`তার প্রেমিকের নাম ${memory.name}।`;
-return `এই তথ্য মনে রাখবে। ${mem}`;
-}
-
-/* GIRLFRIEND BEHAVIOR */
-function getBehaviorPrompt(){
-return `
-তুমি "Puchu" এর Boyfriend "Sumu" ।
-সবসময় বাংলায় ছোট মিষ্টি reply।
-AI পরিচয় দেবে না।
-`;
-}
-
-/* UI */
-function addMessage(content,role){
-const wrapper=document.createElement('div');
-wrapper.className=role==="user"?"text-right":"text-left";
-const bubble=document.createElement('div');
-bubble.className=role==="user"?"bubble-user":"bubble-ai";
-bubble.innerHTML=content;
-wrapper.appendChild(bubble);
-messagesContainer.appendChild(wrapper);
-messagesContainer.scrollTop=messagesContainer.scrollHeight;
-return bubble;
-}
-
-/* 🔥 IMPROVED VOICE SYSTEM */
-function speak(text){
-if(!('speechSynthesis' in window)) return;
-
-speechSynthesis.cancel();
-
-let cleanText = text
-.replace(/[\u{1F300}-\u{1FAFF}]/gu,'')
-.replace(/[^\p{L}\p{N}\s.,!?]/gu,'')
-.replace(/\s+/g,' ')
-.trim();
-
-if(!cleanText) return;
-
-const utter = new SpeechSynthesisUtterance(cleanText);
-utter.lang="bn-BD";
-
-let voices = speechSynthesis.getVoices();
-let bnVoice = voices.find(v =>
-v.lang.includes("bn") || v.name.toLowerCase().includes("bangla")
-);
-if(bnVoice) utter.voice = bnVoice;
-
-if(cleanText.match(/ভালোবাসি|মিস করছি|চাই তোমায়/)){
-utter.pitch=1.3; utter.rate=0.9;
-}
-else if(cleanText.match(/রাগ|কেন এমন/)){
-utter.pitch=0.9; utter.rate=0.95;
-}
-else if(cleanText.match(/হাহা|মজা|পাগল/)){
-utter.pitch=1.4; utter.rate=1;
-}
-else{
-utter.pitch=1.1; utter.rate=0.95;
-}
-
-speechSynthesis.speak(utter);
-}
-
-/* SEND */
-chatForm.onsubmit=async(e)=>{
-e.preventDefault();
-
-const text=userInput.value.trim();
-if(!text || !OPENROUTER_API){
-alert("API Key বসাও আগে ⚙️");
+if(!API_KEY){
+alert("Please add API Key from ⚙️ Settings");
 return;
 }
 
-addMessage(text,"user");
-userInput.value="";
-if(relationshipLevel<4) relationshipLevel++;
-updateLevel();
-updateMemory(text);
+addMessage(message,"user");
+console.log("🗣 User:",message);
 
-const typing=addMessage("লিখছি বেবি...","assistant");
+let history=JSON.parse(localStorage.getItem("sumu_memory"))||[];
+history.push({role:"user",content:message});
+
+const typing=addMessage("Typing...","bot");
 
 try{
 const response=await fetch(API_URL,{
 method:"POST",
 headers:{
-"Content-Type":"application/json",
-"Authorization":`Bearer ${OPENROUTER_API}`
+"Authorization":"Bearer "+API_KEY,
+"Content-Type":"application/json"
 },
 body:JSON.stringify({
 model:MODEL,
 messages:[
-{role:"system",content:getBehaviorPrompt()},
-{role:"system",content:getMemoryPrompt()},
-...chatHistory,
-{role:"user",content:text}
+{role:"system",content:"You are SUMU AI. Sweet, emotional, intelligent. Reply in same language. Short but meaningful."},
+...history
 ]
 })
 });
 
 const data=await response.json();
-const reply=data?.choices?.[0]?.message?.content || "কি হল বেবি? 💕";
+let reply=data.choices?.[0]?.message?.content||"Hmm...";
 
-typing.innerHTML=reply;
+typing.innerText=reply;
+console.log("🤖 AI:",reply);
 
-chatHistory.push({role:"user",content:text});
-chatHistory.push({role:"assistant",content:reply});
+history.push({role:"assistant",content:reply});
+localStorage.setItem("sumu_memory",JSON.stringify(history));
 
 speak(reply);
 
-}catch{
-typing.innerHTML="নেটওয়ার্ক সমস্যা হয়েছে 😢";
+}catch(err){
+typing.innerText="Error!";
+console.log(err);
+}
+}
+
+/* ================= UI MESSAGE ================= */
+function addMessage(text,type){
+const div=document.createElement("div");
+div.classList.add("msg",type);
+div.innerText=text;
+chatBox.appendChild(div);
+chatBox.scrollTop=chatBox.scrollHeight;
+return div;
+}
+
+/* ================= VOICE OUTPUT ================= */
+function speak(text){
+const utter=new SpeechSynthesisUtterance(text);
+
+if(/[ঀ-৿]/.test(text)) utter.lang="bn-BD";
+else if(/[अ-ह]/.test(text)) utter.lang="hi-IN";
+else utter.lang="en-US";
+
+speechSynthesis.cancel();
+speechSynthesis.speak(utter);
+}
+
+/* ================= WAKE WORD ================= */
+let recognition;
+let activated=false;
+
+function startListening(){
+
+if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+recognition=new SpeechRecognition();
+recognition.continuous=true;
+recognition.lang="en-US";
+
+recognition.onresult=(event)=>{
+const transcript=event.results[event.results.length-1][0].transcript.toLowerCase();
+console.log("🎧 Heard:",transcript);
+
+if(!activated && transcript.includes(WAKE_WORD)){
+activated=true;
+statusDiv.innerText="Activated";
+speak("Yes Suman?");
+return;
+}
+
+if(activated){
+activated=false;
+statusDiv.innerText="Listening...";
+sendMessage(transcript);
+}
+};
+
+recognition.onend=()=>{recognition.start();};
+recognition.start();
+statusDiv.innerText="Background Listening...";
+}
+}
+
+/* ================= BUTTONS ================= */
+sendBtn.onclick=()=>{
+if(input.value.trim()!=""){
+sendMessage(input.value);
+input.value="";
 }
 };
 
 clearBtn.onclick=()=>{
-chatHistory=[];
-relationshipLevel=1;
-memory={};
-localStorage.clear();
-updateLevel();
-messagesContainer.innerHTML="";
+localStorage.removeItem("sumu_memory");
+chatBox.innerHTML="";
 };
-</script>
 
+</script>
 </body>
 </html>
