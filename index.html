@@ -107,12 +107,41 @@ alert("API Key Saved!");
 }
 };
 
+/* ================= GREETING FUNCTION ================= */
+function getGreeting(){
+
+const hour=new Date().getHours();
+
+if(hour>=5 && hour<12){
+return "শুভ সকাল ☀️ আজকের দিনটা সুন্দর কাটুক!";
+}
+else if(hour>=12 && hour<16){
+return "শুভ দুপুর 🌤 আশা করি তোমার দিনটা ভালো যাচ্ছে!";
+}
+else if(hour>=16 && hour<20){
+return "শুভ বিকাল 🌇 একটু বিশ্রাম নিতে ভুলো না!";
+}
+else{
+return "শুভ রাত্রি 🌙 আজকের দিনটা শান্তিতে শেষ হোক!";
+}
+
+}
+
 /* ================= MEMORY LOAD ================= */
 window.onload=()=>{
+
 let history=JSON.parse(localStorage.getItem("sumu_memory"))||[];
 history.forEach(msg=>{
 addMessage(msg.content,msg.role==="user"?"user":"bot");
 });
+
+/* ✅ AUTO GREETING (only if no previous chat) */
+if(history.length===0){
+const greeting=getGreeting();
+addMessage(greeting,"bot");
+speak(greeting);
+}
+
 startListening();
 };
 
@@ -125,7 +154,6 @@ return;
 }
 
 addMessage(message,"user");
-console.log("🗣 User:",message);
 
 let history=JSON.parse(localStorage.getItem("sumu_memory"))||[];
 history.push({role:"user",content:message});
@@ -152,7 +180,6 @@ const data=await response.json();
 let reply=data.choices?.[0]?.message?.content||"Hmm...";
 
 typing.innerText=reply;
-console.log("🤖 AI:",reply);
 
 history.push({role:"assistant",content:reply});
 localStorage.setItem("sumu_memory",JSON.stringify(history));
@@ -177,6 +204,10 @@ return div;
 
 /* ================= VOICE OUTPUT ================= */
 function speak(text){
+
+// Emoji remove for clean speech
+text=text.replace(/[^\p{L}\p{N}\s.,?!]/gu,'');
+
 const utter=new SpeechSynthesisUtterance(text);
 
 if(/[ঀ-৿]/.test(text)) utter.lang="bn-BD";
@@ -202,12 +233,11 @@ recognition.lang="en-US";
 
 recognition.onresult=(event)=>{
 const transcript=event.results[event.results.length-1][0].transcript.toLowerCase();
-console.log("🎧 Heard:",transcript);
 
 if(!activated && transcript.includes(WAKE_WORD)){
 activated=true;
 statusDiv.innerText="Activated";
-speak("Yes Suman?");
+speak("Yes?");
 return;
 }
 
